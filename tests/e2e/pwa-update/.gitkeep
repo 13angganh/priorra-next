@@ -1,0 +1,1 @@
+Update flow end-to-end: v(n) to v(n+1) with skipWaiting + clientsClaim, old cache cleared, IndexedDB NOT cleared (Architecture Proposal section 11.5). Written alongside Development Phase #34.

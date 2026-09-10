@@ -1,0 +1,1 @@
+Full CRUD, complete/uncomplete round-trip, tombstone delete, export/import backup, per-migration tests (Architecture Proposal section 11.2). Written alongside Development Phase #25 and #35.

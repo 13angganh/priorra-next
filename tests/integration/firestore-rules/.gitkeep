@@ -1,0 +1,1 @@
+Security Rules tests against the Firebase emulator - user A cannot read/write user B data (Architecture Proposal section 11.3 / Master Instruction section 19). Written alongside Development Phase #26.

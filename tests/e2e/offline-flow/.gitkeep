@@ -1,0 +1,1 @@
+Full offline flow: open with no network at all, create/edit/complete/reorder, close, reopen - data intact (Architecture Proposal section 11.6). Written alongside Development Phase #37.
