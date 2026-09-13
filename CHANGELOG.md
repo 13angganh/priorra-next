@@ -11,92 +11,132 @@ a migration happened.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-12
+
 ### Added
 
-- Project scaffold: Next.js 16 + TypeScript, App Router, `src/`
-  layout, Tailwind, ESLint. Folder structure matches Architecture
-  Proposal section 2.
-- Test runner: Vitest, scoped to `tests/unit` and
-  `tests/integration`. `tests/e2e` and `tests/integration/firestore-rules`
-  need a running browser/emulator respectively and are not part of
-  `npm run test` — see "Known limitations" below.
-- **Domain model and validation (Phase #23)**: full `Task`, `Space`,
-  `AppSettings`, and sync-support types in `src/types/`, plus Zod
-  schemas with 13 passing unit tests.
-- **Repository interfaces (Phase #24)**: `TaskRepository`,
-  `SpaceRepository`, `SettingsRepository` contracts in
-  `src/lib/db/repositories/`.
-- **IndexedDB implementation (Phase #25)**: full CRUD, soft-delete
-  tombstones, atomic manual reorder, subscribe()-based live-query
-  pub-sub. 14 passing integration tests against `fake-indexeddb`.
-- **Firestore adapter (Phase #26)**: env-based Firebase config with
-  an `isFirebaseConfigured()` guard (the app runs fully offline if
-  unset, rather than crashing), anonymous auth, `FirestoreTaskRepository`
-  partitioned under `users/{uid}/...`, and a real (not deny-all
-  placeholder) `firestore.rules`. Rules tests are written (5
-  scenarios) but not yet run — see "Known limitations".
-- **CRUD hooks (Phase #27)**: `useTaskList`/`useTaskActions`,
-  `useSpaceList`/`useSpaceActions`, `useSettings`, `useUndo` (5s
-  undo window per Master Instruction section 6).
-- **Priority/sorting (Phase #28)**: `smartSort()` — the 4-level
-  tie-break order from Architecture Proposal section 6, 9 passing
-  unit tests covering each rule individually and in combination.
-- **Dashboard/UI (Phase #30)**: all four routes are fully functional
-  — `/tasks` (space switcher, smart-sorted list, create/edit/complete/
-  delete, undo toast), `/spaces` (create/edit/delete), `/completed`
-  (most-recently-completed-first, one-tap uncomplete), `/settings`
-  (theme, default sort, Firebase connection status). Premium/native
-  feel per explicit UI/UX request: spring-physics modal (bottom
-  sheet on mobile), animated stroke-draw checkmark, shared-layout
-  tab-pill glide (`layoutId`), shimmer skeletons in place of "Loading...",
-  scale-down tap feedback throughout, page-transition fade between
-  routes.
-- **PWA manifest and service worker (Phase #33-34)**: `app/manifest.ts`
-  (the current App Router file convention — auto-linked into every
-  page's `<head>`, confirmed by inspecting the actual built HTML
-  output rather than assumed), four generated icons (192/512/512-maskable/32px,
-  designed to match the app's single-accent identity), and a real
-  service worker via Serwist (`@serwist/next`) with `skipWaiting`/
-  `clientsClaim` — and, critically, `reloadOnOnline: false` set
-  explicitly, because the library's own default is `true`, which
-  would force a page reload the instant connectivity returns, even
-  mid-keystroke in the task form. That is exactly the failure mode
-  Architecture Proposal section 7's "Poin kritis" warns against.
-  Verified by inspecting the actual generated `public/sw.js` (not
-  just a successful build exit code): confirmed a real ~44KB
-  precache manifest listing every build chunk and all four icons
-  with content-hash revisions, confirmed `skipWaiting`/`clientsClaim`
-  are actually present in the bundled output, and confirmed
-  `<link rel="manifest" href="/manifest.webmanifest">` and the
-  service worker's own `navigator.serviceWorker.register(...)` call
-  are both present in the real built HTML/JS.
-- **Sync engine (Phase #36)**: `SyncQueue` (its own IndexedDB store,
-  with FIFO-per-entity and global-FIFO indexes), `SyncEngine`
-  (`drainQueue()` — pushes queued writes to Firestore with
-  exponential backoff, 1s/2s/4s/8s/16s across up to 5 attempts,
-  processing different entities concurrently but each entity's own
-  operations strictly in order per Architecture Proposal section 4.3;
-  `pullChanges()` — reconciles remote Task/Space changes against
-  local IndexedDB via last-write-wins per section 4.2), and
-  `FirestoreSpaceRepository` (Task-side existed since Phase #26;
-  Space-side added here). Every `IndexedDB{Task,Space}Repository`
-  write method now also enqueues a sync operation — this was NOT
-  optional per-call wiring; it's built into create/update/complete/
-  uncomplete/delete/reorder directly, so no call site can forget it.
-  `startSyncEngine()` mounts once via a new `SyncEngineProvider`
-  client component in `AppShell`, and is a safe no-op end-to-end
-  when Firebase isn't configured. A UI sync indicator ("Menyinkronkan...",
-  "Tersimpan", "Offline") — deliberately NOT a separately-tracked
-  boolean, but derived live from the queue's actual pending count +
-  online status per section 5, so it structurally cannot drift out
-  of sync with reality — now shows in `TopBar` (every dashboard page)
-  and on `/settings`. 24 new tests (`sync-queue`, `conflict-resolution`,
-  `sync-engine` — the last with Firestore mocked, since no emulator
-  access exists in this environment; everything else in the chain —
-  IndexedDB, the queue, FIFO ordering, retry bookkeeping,
-  reconciliation logic — is exercised for real).
+- **v1.0.0 release.** Everything below this entry in the "Fixed" and
+  "Changed" sections of this release was found through direct user
+  feedback ("terasa sangat mentah asal jadi... tidak seperti apps
+  pada umumnya... beberapa render kadang crash") followed by a
+  systematic visual + functional audit — real screenshots of every
+  page in both light and dark mode, real Playwright reproduction
+  scripts, not just a lint/typecheck/test pass. Several of the fixes
+  below found NEW bugs while fixing the reported ones; each is
+  documented separately rather than folded together.
+- `EmptyState` — a real empty-state primitive (icon + title +
+  description + optional action) in `components/ui/`, replacing
+  bare gray sentences floating in mostly-blank pages, plus three
+  custom line-art SVG icons (`TasksEmptyIcon`, `SpacesEmptyIcon`,
+  `CompletedEmptyIcon`) matching the app's single-accent identity
+  rather than generic large unicode characters (✓, ▢, ☑).
+- `IconPicker` — a real tappable grid of 24 curated emoji for Space
+  icons, replacing a bare `<input type="text" placeholder="📋">`
+  that had no real way to be filled in on most devices.
+- `--content-height` CSS custom property in `globals.css`, computed
+  from TopBar's and BottomNav's actual measured heights (53px/54px,
+  confirmed via `getBoundingClientRect()` in a real browser, not
+  guessed) using `100dvh` rather than `100vh` (accounts for mobile
+  browser chrome show/hide, which `vh` does not). Used by every
+  empty-state wrapper so content centers in the space that's
+  actually available instead of an arbitrary `vh` percentage.
+- `/settings`'s version line now reads `packageJson.version`
+  directly rather than being hand-maintained separately from
+  `package.json`.
 
 ### Fixed
+
+- **Critical security vulnerability in Next.js itself, caught during
+  final pre-ship verification.** `npm audit` against a freshly
+  extracted, freshly `npm install`-ed copy of this exact release —
+  not the working directory used throughout development, which had
+  an older `npm audit` snapshot cached — surfaced a *critical*
+  advisory affecting Next.js 16.0.0-16.3.2 (the version used
+  throughout this project until this point): unauthenticated remote
+  code execution on Windows-hosted servers, and a second
+  unauthenticated RCE in the Image Optimization API when AVIF files
+  are used (GHSA-p293-qw3h-jr36, GHSA-2xp9-vwfh-vxw4). Fixed by
+  upgrading to `next@16.3.5`, which resolves both. Re-verified in
+  full after the upgrade: lint 0/0, typecheck clean, 66/66 tests
+  passing, production build clean. This is exactly why "verify
+  against a freshly extracted zip" is a real, separate check from
+  "the working directory's tests pass" — a security advisory
+  published after the last `npm install` in a long-lived working
+  directory is invisible until something forces a fresh install.
+- **Real, intermittent render crash — reproduced and confirmed,
+  not just theorized.** Rapid navigation between bottom-nav tabs
+  could render a fully blank page (confirmed via screenshot: a
+  page's `<main>` content area was empty except for the nav itself,
+  with zero console errors — a silent React render failure, not a
+  thrown exception). Root cause: `PageTransition`'s
+  `AnimatePresence` wrapped `{children}` directly with no
+  protection against the App Router updating its internal
+  `LayoutRouterContext` mid-exit-animation, which can unmount a
+  page's component tree before Framer Motion finishes animating it
+  out — documented at https://github.com/vercel/next.js/issues/49279.
+  Fixed with the community-standard "FrozenRouter" pattern (freeze
+  the router context for an exiting page's subtree until its exit
+  animation completes). The commonly-published version of this
+  pattern reads a ref's `.current` directly during render, which
+  `eslint-plugin-react-hooks@7`'s `react-hooks/refs` rule correctly
+  rejects — rewritten twice to land on React's own documented
+  "adjusting state during render" pattern (`useState` + a
+  setState-during-render call guarded by an inequality check)
+  instead of `useRef`. Verified with 20 rapid-navigation rounds
+  post-fix (0 blank renders) after the original bug was caught via
+  the same kind of test.
+- **Icon picker was fundamentally unusable, not just unpolished.**
+  `SpaceForm`'s icon field was a plain text input with an emoji
+  placeholder and no actual way to type an emoji on most devices —
+  addressed by building `IconPicker` (see Added above). Building it
+  surfaced two more real bugs, found via Playwright, not guessed:
+  (1) positioned with `position: absolute` relative to its trigger
+  button, the popover either ran off the bottom of the viewport or,
+  once flipped upward, spilled outside its parent Modal's bounds —
+  Modal's full-viewport backdrop (`z-50`) then silently ate clicks
+  for whatever part fell outside Modal's rendered box (confirmed via
+  a real Playwright click timing out with an "intercepts pointer
+  events" error, not assumed); (2) even after that, the popover's
+  `z-10` also lost to Modal's backdrop `z-50` for clicks. Both fixed
+  by rendering the popover through a `react-dom` portal directly
+  into `document.body` with `position: fixed` computed from the
+  trigger's real on-screen coordinates (`getBoundingClientRect()`),
+  making it fully independent of Modal's size, scroll position, or
+  z-index stacking — verified end-to-end: picking an icon, saving
+  the form, and confirming the icon actually persists and displays
+  in the Spaces list afterward, not just that the click succeeds.
+- **Undo toast could visually overlap an open modal, covering
+  interactive controls.** A visual audit screenshot caught the
+  "Task completed / Undo" toast from completing one task rendering
+  on top of the Edit Task modal's Due Date field and partially
+  covering the Save button when that modal was opened within the
+  5-second undo window — both elements used identical `z-50`, so
+  which one visually won depended on DOM insertion order, not
+  anything deliberate. Fixed two ways: every call site that opens a
+  modal now calls `dismissUndo()` first (see `/tasks/page.tsx`), and
+  `Toast`'s z-index dropped to `z-40` (below Modal's `z-50`) as
+  defense in depth, so a modal correctly wins visually even if a
+  toast is somehow still showing when one opens.
+- **A dead "+" button on `/completed`.** `SpaceTabs`'s "add space"
+  button was always rendered, but `/completed` had no real action
+  for it (creating a Space doesn't belong on a completed-tasks
+  review screen) and passed `onAddSpace={() => {}}` — a button
+  visually identical to the working one elsewhere that silently did
+  nothing when tapped. `onAddSpace` is now optional; omitting it
+  hides the button entirely instead of rendering a dead control.
+- **Large unbalanced blank areas on `/tasks`, `/spaces`, and
+  `/completed`'s empty states, and on `/settings` generally** — a
+  full-page screenshot audit (light AND dark mode) found every one
+  of these left roughly 60-70% of the screen blank below a small
+  gray sentence, which read as unfinished rather than designed.
+  `/tasks`, `/spaces`, `/completed` fixed via `EmptyState` +
+  `--content-height` centering (see Added above). `/settings` — not
+  an empty state, just genuinely short content — fixed by pinning
+  its "About" footer (app name, version, schema version) to the
+  bottom of the available space via flex instead of leaving it
+  stacked at the top with nothing below it; this is the layout
+  pattern real settings screens use rather than padding the gap
+  with unrelated decorative content.
 
 - **`tsconfig.sw.json` was silently broken since the moment it was
   created — `src/app/sw.ts` was never actually being typechecked.**
@@ -202,6 +242,96 @@ a migration happened.
 
 ### Changed
 
+- Version bumped `0.1.0` → `1.0.0`. This reflects that the reported
+  quality issues above have been found, reproduced, and fixed with
+  verification evidence (not just addressed cosmetically) — not a
+  claim that every possible edge case has been audited; see "Known
+  limitations" for what remains explicitly unverified (Firestore
+  rules against a real project, the sync engine against a real
+  Firestore connection).
+- Project scaffold: Next.js 16 + TypeScript, App Router, `src/`
+  layout, Tailwind, ESLint. Folder structure matches Architecture
+  Proposal section 2.
+- Test runner: Vitest, scoped to `tests/unit` and
+  `tests/integration`. `tests/e2e` and `tests/integration/firestore-rules`
+  need a running browser/emulator respectively and are not part of
+  `npm run test` — see "Known limitations" below.
+- **Domain model and validation (Phase #23)**: full `Task`, `Space`,
+  `AppSettings`, and sync-support types in `src/types/`, plus Zod
+  schemas with 13 passing unit tests.
+- **Repository interfaces (Phase #24)**: `TaskRepository`,
+  `SpaceRepository`, `SettingsRepository` contracts in
+  `src/lib/db/repositories/`.
+- **IndexedDB implementation (Phase #25)**: full CRUD, soft-delete
+  tombstones, atomic manual reorder, subscribe()-based live-query
+  pub-sub. 14 passing integration tests against `fake-indexeddb`.
+- **Firestore adapter (Phase #26)**: env-based Firebase config with
+  an `isFirebaseConfigured()` guard (the app runs fully offline if
+  unset, rather than crashing), anonymous auth, `FirestoreTaskRepository`
+  partitioned under `users/{uid}/...`, and a real (not deny-all
+  placeholder) `firestore.rules`. Rules tests are written (5
+  scenarios) but not yet run — see "Known limitations".
+- **CRUD hooks (Phase #27)**: `useTaskList`/`useTaskActions`,
+  `useSpaceList`/`useSpaceActions`, `useSettings`, `useUndo` (5s
+  undo window per Master Instruction section 6).
+- **Priority/sorting (Phase #28)**: `smartSort()` — the 4-level
+  tie-break order from Architecture Proposal section 6, 9 passing
+  unit tests covering each rule individually and in combination.
+- **Dashboard/UI (Phase #30)**: all four routes are fully functional
+  — `/tasks` (space switcher, smart-sorted list, create/edit/complete/
+  delete, undo toast), `/spaces` (create/edit/delete), `/completed`
+  (most-recently-completed-first, one-tap uncomplete), `/settings`
+  (theme, default sort, Firebase connection status). Premium/native
+  feel per explicit UI/UX request: spring-physics modal (bottom
+  sheet on mobile), animated stroke-draw checkmark, shared-layout
+  tab-pill glide (`layoutId`), shimmer skeletons in place of "Loading...",
+  scale-down tap feedback throughout, page-transition fade between
+  routes.
+- **PWA manifest and service worker (Phase #33-34)**: `app/manifest.ts`
+  (the current App Router file convention — auto-linked into every
+  page's `<head>`, confirmed by inspecting the actual built HTML
+  output rather than assumed), four generated icons (192/512/512-maskable/32px,
+  designed to match the app's single-accent identity), and a real
+  service worker via Serwist (`@serwist/next`) with `skipWaiting`/
+  `clientsClaim` — and, critically, `reloadOnOnline: false` set
+  explicitly, because the library's own default is `true`, which
+  would force a page reload the instant connectivity returns, even
+  mid-keystroke in the task form. That is exactly the failure mode
+  Architecture Proposal section 7's "Poin kritis" warns against.
+  Verified by inspecting the actual generated `public/sw.js` (not
+  just a successful build exit code): confirmed a real ~44KB
+  precache manifest listing every build chunk and all four icons
+  with content-hash revisions, confirmed `skipWaiting`/`clientsClaim`
+  are actually present in the bundled output, and confirmed
+  `<link rel="manifest" href="/manifest.webmanifest">` and the
+  service worker's own `navigator.serviceWorker.register(...)` call
+  are both present in the real built HTML/JS.
+- **Sync engine (Phase #36)**: `SyncQueue` (its own IndexedDB store,
+  with FIFO-per-entity and global-FIFO indexes), `SyncEngine`
+  (`drainQueue()` — pushes queued writes to Firestore with
+  exponential backoff, 1s/2s/4s/8s/16s across up to 5 attempts,
+  processing different entities concurrently but each entity's own
+  operations strictly in order per Architecture Proposal section 4.3;
+  `pullChanges()` — reconciles remote Task/Space changes against
+  local IndexedDB via last-write-wins per section 4.2), and
+  `FirestoreSpaceRepository` (Task-side existed since Phase #26;
+  Space-side added here). Every `IndexedDB{Task,Space}Repository`
+  write method now also enqueues a sync operation — this was NOT
+  optional per-call wiring; it's built into create/update/complete/
+  uncomplete/delete/reorder directly, so no call site can forget it.
+  `startSyncEngine()` mounts once via a new `SyncEngineProvider`
+  client component in `AppShell`, and is a safe no-op end-to-end
+  when Firebase isn't configured. A UI sync indicator ("Menyinkronkan...",
+  "Tersimpan", "Offline") — deliberately NOT a separately-tracked
+  boolean, but derived live from the queue's actual pending count +
+  online status per section 5, so it structurally cannot drift out
+  of sync with reality — now shows in `TopBar` (every dashboard page)
+  and on `/settings`. 24 new tests (`sync-queue`, `conflict-resolution`,
+  `sync-engine` — the last with Firestore mocked, since no emulator
+  access exists in this environment; everything else in the chain —
+  IndexedDB, the queue, FIFO ordering, retry bookkeeping,
+  reconciliation logic — is exercised for real).
+
 - **`npm run build` now runs `next build --webpack` instead of the
   Turbopack default.** `@serwist/next` (the standard, actively-
   documented Serwist package) does not support Turbopack — confirmed
@@ -274,11 +404,11 @@ a migration happened.
   specifically the live network round-trip to a real Firestore
   project.
 - **Migrations (Phase #35): deliberately empty, not unfinished.**
-  Schema is still v1, and since this project has never had a real
-  release (still `[Unreleased]`), there's no prior-version data that
-  would need a migration path. `lib/db/indexeddb/migrations/README.md`
+  Schema is still v1, and this is the first real release — there's
+  no prior-version data that would need a migration path yet.
+  `lib/db/indexeddb/migrations/README.md`
   documents exactly what to do the first time a schema change ships
-  after a real release, and `example-v1-to-v2.ts.txt` is a worked
+  after 1.0.0, and `example-v1-to-v2.ts.txt` is a worked
   skeleton of the pattern (kept as `.txt` so it's never picked up by
   the build).
 - **`tests/e2e/` is reserved for a browser-based runner** (e.g.
@@ -297,14 +427,15 @@ a migration happened.
 
 ### Migration
 
-- N/A — IndexedDB schema is still v1. Note: this entry's work added
-  two indexes (`entityId`, `queuedAt`) to the `syncQueue` store,
-  which IS a schema change — but since this project has never had a
-  real release (still `[Unreleased]`, no installed base with old-
-  shape data to migrate), it was made directly to the v1 `upgrade()`
-  callback rather than versioned as a v1→v2 migration. Any schema
-  change made AFTER the first real release will need an actual
-  migration file, not this shortcut.
+- N/A — IndexedDB schema is still v1. Note: this release's work
+  added two indexes (`entityId`, `queuedAt`) to the `syncQueue`
+  store, which IS a schema change — but since this was made before
+  the 1.0.0 release cut (no installed base with old-shape data to
+  migrate), it went directly into the v1 `upgrade()` callback rather
+  than being versioned as a v1→v2 migration. Any schema change made
+  in a version AFTER this one will need an actual migration file,
+  not this shortcut — 1.0.0 is the baseline that migrations
+  going forward are measured against.
 
 ### PWA
 

@@ -6,10 +6,23 @@ import { useSettings } from "@/features/tasks/hooks/use-settings";
 import { isFirebaseConfigured } from "@/lib/firebase/config";
 import { DB_SCHEMA_VERSION } from "@/lib/db/indexeddb/schema";
 import { useSyncStatus } from "@/hooks/use-sync-status";
+import packageJson from "../../../../package.json";
 
 /**
  * /settings — theme, default sort mode, and read-only app info.
  * Development Phase #30.
+ *
+ * REAL LAYOUT ISSUE FIXED: a dark-mode screenshot audit caught this
+ * page leaving roughly 65% of the screen blank below the "About"
+ * row — every control was stacked at the top with nothing to
+ * balance the layout below it, the same "unfinished" impression
+ * raised as feedback elsewhere in the app. Rather than pad the gap
+ * with decorative content that doesn't belong on a settings screen,
+ * the page footer (app name + version + schema) is now pinned to
+ * the bottom via flex, which is the layout real Settings screens
+ * actually use — the content people came here to change stays near
+ * the top, ancillary info anchors the bottom, nothing floats in an
+ * arbitrary empty middle.
  */
 const THEMES = [
   { value: "light", label: "Light" },
@@ -85,7 +98,7 @@ export default function SettingsPage() {
   if (loading) return <TopBar title="Settings" />;
 
   return (
-    <>
+    <div className="flex flex-col min-h-[var(--content-height)]">
       <TopBar title="Settings" />
 
       <div className="py-2">
@@ -127,13 +140,16 @@ export default function SettingsPage() {
             </p>
           </div>
         </SettingsRow>
-
-        <SettingsRow label="About">
-          <p className="text-[13px] text-zinc-400">
-            PRIORRA Next · IndexedDB schema v{DB_SCHEMA_VERSION}
-          </p>
-        </SettingsRow>
       </div>
-    </>
+
+      <div className="flex-1" />
+
+      <div className="flex flex-col items-center gap-0.5 pt-6 pb-4 text-center">
+        <p className="text-[13px] font-medium text-zinc-400 dark:text-zinc-500">PRIORRA Next</p>
+        <p className="text-[11px] text-zinc-300 dark:text-zinc-600">
+          v{packageJson.version} · IndexedDB schema v{DB_SCHEMA_VERSION}
+        </p>
+      </div>
+    </div>
   );
 }

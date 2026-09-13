@@ -4,7 +4,7 @@ import { useState } from "react";
 import { TopBar } from "@/components/layout";
 import { SpaceTabs, SpaceForm } from "@/components/space";
 import { TaskList, TaskForm } from "@/components/task";
-import { Modal, Button, Toast, TaskListSkeleton } from "@/components/ui";
+import { Modal, Button, Toast, TaskListSkeleton, EmptyState, SpacesEmptyIcon } from "@/components/ui";
 import { useSpaceList } from "@/features/spaces/hooks/use-space-list";
 import { useSpaceActions } from "@/features/spaces/hooks/use-space-actions";
 import { useTaskList } from "@/features/tasks/hooks/use-task-list";
@@ -55,11 +55,13 @@ export default function TasksPage() {
     return (
       <>
         <TopBar title="Tasks" />
-        <div className="text-center py-16">
-          <p className="text-sm text-zinc-400 mb-4">
-            Create a space first to start adding tasks.
-          </p>
-          <Button onClick={() => setCreatingSpace(true)}>Create your first space</Button>
+        <div className="flex items-center justify-center min-h-[var(--content-height)]">
+          <EmptyState
+            icon={<SpacesEmptyIcon />}
+            title="Let's set up your first space"
+            description="Spaces keep different areas of your life separate — Work, Personal, whatever fits how you think. You'll add tasks once you've got one."
+            action={<Button onClick={() => setCreatingSpace(true)}>Create your first space</Button>}
+          />
         </div>
         <Modal open={creatingSpace} onClose={() => setCreatingSpace(false)} title="New space">
           <SpaceForm
@@ -80,7 +82,14 @@ export default function TasksPage() {
       <TopBar
         title="Tasks"
         action={
-          <Button size="sm" onClick={() => setEditingTask("new")} disabled={!activeSpaceId}>
+          <Button
+            size="sm"
+            onClick={() => {
+              dismissUndo();
+              setEditingTask("new");
+            }}
+            disabled={!activeSpaceId}
+          >
             + Add
           </Button>
         }
@@ -91,7 +100,10 @@ export default function TasksPage() {
           spaces={spaces}
           activeSpaceId={activeSpaceId}
           onSelect={setSelectedSpaceId}
-          onAddSpace={() => setCreatingSpace(true)}
+          onAddSpace={() => {
+            dismissUndo();
+            setCreatingSpace(true);
+          }}
         />
       </div>
 
@@ -102,8 +114,15 @@ export default function TasksPage() {
           tasks={pendingTasks}
           sortMode="smart"
           onToggleComplete={handleToggleComplete}
-          onEdit={(task) => setEditingTask(task)}
+          onEdit={(task) => {
+            dismissUndo();
+            setEditingTask(task);
+          }}
           onDelete={(task) => deleteTask(task.id)}
+          onAddTask={() => {
+            dismissUndo();
+            setEditingTask("new");
+          }}
         />
       )}
 

@@ -7,6 +7,14 @@ import type { Space } from "@/types/space";
  * Horizontal tab bar for switching between Spaces. Development
  * Phase #30. The active pill uses layoutId so it glides between
  * tabs on selection instead of snapping.
+ *
+ * REAL BUG FIXED: `/completed` had no real "add space" action for
+ * this context (creating a Space belongs on /tasks or /spaces, not
+ * mid-review-of-completed-items), so it passed `onAddSpace={() => {}}`
+ * — a button that looked identical to the working one elsewhere but
+ * silently did nothing when tapped. `onAddSpace` is now optional;
+ * omitting it hides the button entirely instead of rendering a dead
+ * control.
  */
 export function SpaceTabs({
   spaces,
@@ -17,7 +25,7 @@ export function SpaceTabs({
   spaces: Space[];
   activeSpaceId: string | null;
   onSelect: (spaceId: string) => void;
-  onAddSpace: () => void;
+  onAddSpace?: () => void;
 }) {
   return (
     <div className="flex items-center gap-1.5 overflow-x-auto px-1 pb-1 -mx-1">
@@ -49,14 +57,16 @@ export function SpaceTabs({
           </motion.button>
         );
       })}
-      <motion.button
-        onClick={onAddSpace}
-        whileTap={{ scale: 0.9 }}
-        aria-label="Add space"
-        className="shrink-0 w-8 h-8 rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 flex items-center justify-center text-lg"
-      >
-        +
-      </motion.button>
+      {onAddSpace && (
+        <motion.button
+          onClick={onAddSpace}
+          whileTap={{ scale: 0.9 }}
+          aria-label="Add space"
+          className="shrink-0 w-8 h-8 rounded-full bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700 flex items-center justify-center text-lg"
+        >
+          +
+        </motion.button>
+      )}
     </div>
   );
 }

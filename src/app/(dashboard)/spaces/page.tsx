@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TopBar } from "@/components/layout";
 import { SpaceForm } from "@/components/space";
-import { Modal, Button, Skeleton } from "@/components/ui";
+import { Modal, Button, Skeleton, EmptyState, SpacesEmptyIcon } from "@/components/ui";
 import { useSpaceList } from "@/features/spaces/hooks/use-space-list";
 import { useSpaceActions } from "@/features/spaces/hooks/use-space-actions";
 import type { Space } from "@/types/space";
@@ -38,11 +38,13 @@ export default function SpacesPage() {
         )}
 
         {!loading && spaces.length === 0 && (
-          <div className="flex flex-col items-center gap-2 py-16 text-center">
-            <span className="text-3xl opacity-30">▢</span>
-            <p className="text-sm text-zinc-400">
-              No spaces yet. Create one to start adding tasks.
-            </p>
+          <div className="flex items-center justify-center min-h-[var(--content-height)]">
+            <EmptyState
+              icon={<SpacesEmptyIcon />}
+              title="Set up your first space"
+              description="Spaces keep different areas of your life separate — Work, Personal, whatever fits how you think."
+              action={<Button onClick={() => setEditingSpace("new")}>+ Create space</Button>}
+            />
           </div>
         )}
 

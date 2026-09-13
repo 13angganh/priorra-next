@@ -6,13 +6,18 @@ source of truth) with optional Firestore cloud sync — Architecture C
 
 ## Status
 
-Pre-release (`0.1.0`, unreleased). Core app — domain model,
-IndexedDB persistence, sync engine, dashboard UI, PWA install/offline
-support — is implemented and verified (lint/typecheck/tests all
-green, production build clean). See `CHANGELOG.md` for the complete,
-detailed history of what's been built, fixed, and what's
-deliberately not yet implemented (migrations, live Firestore-rules
-testing).
+`1.0.0`. Core app — domain model, IndexedDB persistence, sync
+engine, dashboard UI, PWA install/offline support — is implemented
+and verified (lint/typecheck/tests all green, production build
+clean). This release also fixed a real intermittent render crash and
+several real UI bugs found via direct testing (icon picker,
+undo-toast/modal overlap, unbalanced empty-state layouts) — see
+`CHANGELOG.md`'s `[1.0.0]` entry for the full detail on each. See
+`CHANGELOG.md` generally for the complete, detailed history of
+what's been built, fixed, and what's deliberately not yet
+implemented (migrations — none needed yet, since this is the
+baseline release; live Firestore-rules testing against a real
+project).
 
 ## Getting started
 

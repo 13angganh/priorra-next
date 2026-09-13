@@ -4,7 +4,7 @@ import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { TopBar } from "@/components/layout";
 import { SpaceTabs } from "@/components/space";
-import { Skeleton } from "@/components/ui";
+import { Skeleton, EmptyState, CompletedEmptyIcon } from "@/components/ui";
 import { useSpaceList } from "@/features/spaces/hooks/use-space-list";
 import { useTaskList } from "@/features/tasks/hooks/use-task-list";
 import { useTaskActions } from "@/features/tasks/hooks/use-task-actions";
@@ -44,7 +44,6 @@ export default function CompletedPage() {
             spaces={spaces}
             activeSpaceId={activeSpaceId}
             onSelect={setSelectedSpaceId}
-            onAddSpace={() => {}}
           />
         </div>
       )}
@@ -56,9 +55,12 @@ export default function CompletedPage() {
           ))}
         </div>
       ) : completedTasks.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <span className="text-3xl opacity-30">☑</span>
-          <p className="text-sm text-zinc-400">No completed tasks yet.</p>
+        <div className="flex items-center justify-center min-h-[var(--content-height)]">
+          <EmptyState
+            icon={<CompletedEmptyIcon />}
+            title="Nothing finished yet"
+            description="Tasks you complete in this space will land here, most recent first."
+          />
         </div>
       ) : (
         <AnimatePresence initial={false} mode="popLayout">

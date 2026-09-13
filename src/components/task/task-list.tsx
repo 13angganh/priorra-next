@@ -4,6 +4,7 @@ import { AnimatePresence } from "framer-motion";
 import type { Task } from "@/types/task";
 import { smartSort } from "@/lib/sorting/smart-sort";
 import { TaskItem } from "./task-item";
+import { EmptyState, TasksEmptyIcon, Button } from "@/components/ui";
 
 /**
  * Renders a Space's tasks in the given sort mode. Manual mode is a
@@ -21,12 +22,14 @@ export function TaskList({
   onToggleComplete,
   onEdit,
   onDelete,
+  onAddTask,
 }: {
   tasks: Task[];
   sortMode: "smart" | "manual";
   onToggleComplete: (task: Task) => void;
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
+  onAddTask?: () => void;
 }) {
   const ordered =
     sortMode === "smart"
@@ -35,9 +38,13 @@ export function TaskList({
 
   if (ordered.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 py-16 text-center">
-        <span className="text-3xl opacity-30">✓</span>
-        <p className="text-sm text-zinc-400">No tasks yet. Add one to get started.</p>
+      <div className="flex-1 flex items-center justify-center min-h-[var(--content-height)]">
+        <EmptyState
+          icon={<TasksEmptyIcon />}
+          title="Nothing on your plate"
+          description="Add your first task to this space and it'll show up right here, sorted by what matters most."
+          action={onAddTask && <Button onClick={onAddTask}>+ Add task</Button>}
+        />
       </div>
     );
   }

@@ -7,6 +7,15 @@
      priority intensity is conveyed via opacity/weight, not by
      mapping each priority level to a different hue. */
   --color-accent: #2563eb;
+  /* Measured, not guessed: TopBar is 53px, BottomNav is 54px (both
+     confirmed via getBoundingClientRect() in a real browser).
+     100dvh (dynamic viewport height) rather than 100vh — dvh
+     accounts for mobile browser chrome showing/hiding, vh does not,
+     which otherwise causes this to be wrong by exactly the height
+     of the address bar on many phones. Used by EmptyState's caller
+     wrappers so an empty page's content centers in the space that's
+     ACTUALLY available, not an arbitrary vh percentage guess. */
+  --content-height: calc(100dvh - 53px - 54px);
 }
 
 @theme inline {
