@@ -1,6 +1,7 @@
 import { getDB } from "@/lib/db/indexeddb/client";
 import { STORE_NAMES } from "@/lib/db/indexeddb/schema";
 import type { SyncQueueEntry, SyncOperationKind } from "@/types/sync";
+import { MAX_SYNC_RETRY_ATTEMPTS } from "@/types/sync";
 
 /**
  * Pending-operation queue for SyncEngine. Persisted in its own
@@ -85,8 +86,59 @@ export async function markFailed(id: string, errorMessage: string): Promise<void
   });
 }
 
-/** Count of pending entries — the basis for the UI sync indicator (Architecture Proposal section 5). */
-export async function getPendingCount(): Promise<number> {
+/**
+ * Resets retryCount to 0 for every entry that had given up
+ * (retryCount >= MAX_SYNC_RETRY_ATTEMPTS), so the next drainQueue()
+ * call will actually attempt them again instead of skipping them —
+ * drainEntityQueue's give-up check only looks at retryCount, it has
+ * no other memory of "already gave up" to clear. Used by the
+ * Settings page's manual "Retry sync" action (see /settings), for
+ * when the underlying problem (e.g. Firestore rules not published
+ * yet) has since been fixed.
+ */
+export async function retryStuckEntries(): Promise<void> {
   const db = await getDB();
-  return db.count(STORE_NAMES.syncQueue);
+  const tx = db.transaction(STORE_NAMES.syncQueue, "readwrite");
+  const all = await tx.store.getAll();
+  await Promise.all(
+    all
+      .filter((entry) => entry.retryCount >= MAX_SYNC_RETRY_ATTEMPTS)
+      .map((entry) => tx.store.put({ ...entry, retryCount: 0, lastError: undefined }))
+  );
+  await tx.done;
+}
+
+/**
+ * Breakdown of the queue's current state — the basis for the UI
+ * sync indicator (Architecture Proposal section 5).
+ *
+ *   activeCount — entries SyncEngine is still actively retrying
+ *                 (retryCount < MAX_SYNC_RETRY_ATTEMPTS)
+ *   stuckCount  — entries SyncEngine has given up on (exhausted all
+ *                 retries) but which are still sitting in the queue
+ *
+ * REPLACES a previous plain getPendingCount(): number — see
+ * MAX_SYNC_RETRY_ATTEMPTS's docstring in types/sync.ts for the real
+ * bug this fixes (an indefinitely-stuck "Menyinkronkan..." UI state
+ * once an entry exhausted its retries, because a single undifferentiated
+ * count couldn't tell "still trying" from "gave up").
+ */
+export interface SyncQueueSummary {
+  activeCount: number;
+  stuckCount: number;
+}
+
+export async function getSyncQueueSummary(): Promise<SyncQueueSummary> {
+  const db = await getDB();
+  const all = await db.getAll(STORE_NAMES.syncQueue);
+  let activeCount = 0;
+  let stuckCount = 0;
+  for (const entry of all) {
+    if (entry.retryCount >= MAX_SYNC_RETRY_ATTEMPTS) {
+      stuckCount++;
+    } else {
+      activeCount++;
+    }
+  }
+  return { activeCount, stuckCount };
 }

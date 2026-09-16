@@ -1,16 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { TopBar } from "@/components/layout";
+import { Button } from "@/components/ui";
 import { useSettings } from "@/features/tasks/hooks/use-settings";
 import { isFirebaseConfigured } from "@/lib/firebase/config";
 import { DB_SCHEMA_VERSION } from "@/lib/db/indexeddb/schema";
 import { useSyncStatus } from "@/hooks/use-sync-status";
+import { retryStuckEntries } from "@/lib/sync/sync-queue";
+import { drainQueue } from "@/lib/sync/sync-engine";
 import packageJson from "../../../../package.json";
 
 /**
- * /settings — theme, default sort mode, and read-only app info.
- * Development Phase #30.
+ * /settings — theme, default sort mode, cloud sync status (with a
+ * manual retry action), and read-only app info. Development Phase
+ * #30, extended #36.
  *
  * REAL LAYOUT ISSUE FIXED: a dark-mode screenshot audit caught this
  * page leaving roughly 65% of the screen blank below the "About"
@@ -94,6 +99,17 @@ export default function SettingsPage() {
   // state/effect is needed just to defer it past mount.
   const firebaseOk = isFirebaseConfigured();
   const syncStatus = useSyncStatus();
+  const [retrying, setRetrying] = useState(false);
+
+  const handleRetrySync = async () => {
+    setRetrying(true);
+    try {
+      await retryStuckEntries();
+      await drainQueue();
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   if (loading) return <TopBar title="Settings" />;
 
@@ -126,7 +142,9 @@ export default function SettingsPage() {
                   ? "bg-amber-500 animate-pulse"
                   : syncStatus === "synced"
                     ? "bg-emerald-500"
-                    : "bg-zinc-300 dark:bg-zinc-600"
+                    : syncStatus === "error"
+                      ? "bg-red-500"
+                      : "bg-zinc-300 dark:bg-zinc-600"
               }`}
             />
             <p className="text-[13px] text-zinc-600 dark:text-zinc-400">
@@ -136,9 +154,18 @@ export default function SettingsPage() {
                   ? "Offline — changes will sync when you're back online"
                   : syncStatus === "syncing"
                     ? "Menyinkronkan..."
-                    : "Tersimpan — tasks sync across devices"}
+                    : syncStatus === "error"
+                      ? "Gagal menyinkronkan beberapa perubahan — cek koneksi Firebase Anda"
+                      : "Tersimpan — tasks sync across devices"}
             </p>
           </div>
+          {syncStatus === "error" && (
+            <div className="mt-2.5">
+              <Button size="sm" variant="secondary" onClick={handleRetrySync} disabled={retrying}>
+                {retrying ? "Retrying..." : "Retry sync"}
+              </Button>
+            </div>
+          )}
         </SettingsRow>
       </div>
 

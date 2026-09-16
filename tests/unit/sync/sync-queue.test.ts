@@ -6,8 +6,10 @@ import {
   getQueuedForEntity,
   dequeue,
   markFailed,
-  getPendingCount,
+  getSyncQueueSummary,
+  retryStuckEntries,
 } from "@/lib/sync/sync-queue";
+import { MAX_SYNC_RETRY_ATTEMPTS } from "@/types/sync";
 import { __resetDBConnectionForTests } from "@/lib/db/indexeddb/client";
 
 beforeEach(() => {
@@ -83,10 +85,68 @@ describe("sync-queue", () => {
     expect(updated.lastError).toBe("simulated network failure");
   });
 
-  it("getPendingCount() reflects the current queue size", async () => {
-    expect(await getPendingCount()).toBe(0);
+  it("getSyncQueueSummary() counts everything as activeCount when nothing has exhausted retries", async () => {
+    expect(await getSyncQueueSummary()).toEqual({ activeCount: 0, stuckCount: 0 });
     await enqueue("task", "task-1", "create");
     await enqueue("space", "space-1", "create");
-    expect(await getPendingCount()).toBe(2);
+    expect(await getSyncQueueSummary()).toEqual({ activeCount: 2, stuckCount: 0 });
+  });
+
+  it("REGRESSION: an entry that exhausts MAX_SYNC_RETRY_ATTEMPTS moves from activeCount to stuckCount, not stuck in activeCount forever", async () => {
+    // This is the exact bug reported by a real user: "Menyinkronkan..."
+    // never stopped, because a permanently-failing entry was counted
+    // identically to one still being actively retried. Simulates
+    // MAX_SYNC_RETRY_ATTEMPTS consecutive failures on the same entry.
+    await enqueue("task", "task-1", "create");
+    const [entry] = await getAllQueued();
+
+    for (let i = 0; i < MAX_SYNC_RETRY_ATTEMPTS; i++) {
+      await markFailed(entry.id, `simulated failure #${i + 1}`);
+    }
+
+    const summary = await getSyncQueueSummary();
+    expect(summary.activeCount).toBe(0); // NOT counted as "still trying"
+    expect(summary.stuckCount).toBe(1); // correctly counted as "gave up"
+  });
+
+  it("REGRESSION: an entry with retryCount below the max still counts as activeCount, not stuckCount", async () => {
+    await enqueue("task", "task-1", "create");
+    const [entry] = await getAllQueued();
+    await markFailed(entry.id, "one failure, more retries remaining");
+
+    const summary = await getSyncQueueSummary();
+    expect(summary.activeCount).toBe(1);
+    expect(summary.stuckCount).toBe(0);
+  });
+
+  it("retryStuckEntries() resets a given-up entry's retryCount to 0, moving it back to activeCount", async () => {
+    await enqueue("task", "task-1", "create");
+    const [entry] = await getAllQueued();
+    for (let i = 0; i < MAX_SYNC_RETRY_ATTEMPTS; i++) {
+      await markFailed(entry.id, `failure #${i + 1}`);
+    }
+    expect((await getSyncQueueSummary()).stuckCount).toBe(1);
+
+    await retryStuckEntries();
+
+    const summary = await getSyncQueueSummary();
+    expect(summary.stuckCount).toBe(0);
+    expect(summary.activeCount).toBe(1);
+
+    const [reset] = await getAllQueued();
+    expect(reset.retryCount).toBe(0);
+    expect(reset.lastError).toBeUndefined();
+  });
+
+  it("retryStuckEntries() does NOT touch entries that are still actively retrying", async () => {
+    await enqueue("task", "task-1", "create");
+    const [entry] = await getAllQueued();
+    await markFailed(entry.id, "one failure only");
+
+    await retryStuckEntries();
+
+    const [unchanged] = await getAllQueued();
+    expect(unchanged.retryCount).toBe(1); // untouched, NOT reset to 0
+    expect(unchanged.lastError).toBe("one failure only");
   });
 });

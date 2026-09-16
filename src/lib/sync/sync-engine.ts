@@ -7,7 +7,7 @@ import { onReconnect, isOnline } from "./network-status";
 import { isFirebaseConfigured } from "@/lib/firebase/config";
 import { getDB } from "@/lib/db/indexeddb/client";
 import { STORE_NAMES } from "@/lib/db/indexeddb/schema";
-import type { SyncQueueEntry } from "@/types/sync";
+import { MAX_SYNC_RETRY_ATTEMPTS, type SyncQueueEntry } from "@/types/sync";
 
 /**
  * SyncEngine — orchestrator that reads the sync queue and pushes /
@@ -29,7 +29,7 @@ import type { SyncQueueEntry } from "@/types/sync";
 const firestoreTasks = new FirestoreTaskRepository();
 const firestoreSpaces = new FirestoreSpaceRepository();
 
-const MAX_RETRY_ATTEMPTS = 5;
+const MAX_RETRY_ATTEMPTS = MAX_SYNC_RETRY_ATTEMPTS;
 const BASE_BACKOFF_MS = 1000;
 
 /** Exponential backoff: 1s, 2s, 4s, 8s, 16s. Exported for tests. */

@@ -1,6 +1,6 @@
 {
   "name": "priorra-next",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "PRIORRA Next — personal task/prioritization PWA. Offline-first (IndexedDB) with Firestore cloud sync.",
   "private": true,
   "scripts": {

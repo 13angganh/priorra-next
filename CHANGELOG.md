@@ -11,6 +11,111 @@ a migration happened.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-14
+
+Bug-fix release responding to reported issues: a sync indicator that
+never stopped saying "Menyinkronkan...", and taps on the bottom nav
+sometimes appearing to do nothing / the app appearing to crash.
+
+### Fixed
+
+- **"Menyinkronkan..." never stopped, even when nothing was actually
+  syncing.** Root cause found by reading the code rather than
+  guessing: `SyncEngine` gives up on a queue entry after
+  `MAX_SYNC_RETRY_ATTEMPTS` (5) failed pushes — but the entry stays
+  in the queue afterwards, and `useSyncStatus` derived its state
+  from a single undifferentiated `pendingCount > 0`. So once a push
+  failed permanently (Firestore rules not yet published, wrong
+  project config in Vercel env vars, App Check blocking writes —
+  anything that makes every attempt fail), the queue count never
+  reached zero, and the UI claimed it was still syncing forever
+  while SyncEngine had in fact stopped trying entirely. The
+  indicator was, quite literally, lying about what the app was
+  doing. Fixed by replacing `getPendingCount(): number` with
+  `getSyncQueueSummary(): { activeCount, stuckCount }`, which
+  distinguishes "still being retried" from "gave up", and adding a
+  distinct `"error"` status the UI shows as a red dot reading
+  "Gagal sinkron — lihat Settings" instead of an indefinite
+  "Menyinkronkan...".
+- **No way to recover from a permanently-stuck sync.** Even once the
+  underlying cause was fixed (e.g. rules finally published), stuck
+  entries stayed stuck: `drainEntityQueue` skips anything at max
+  retries, and nothing ever reset that counter. Added
+  `retryStuckEntries()` plus a real **"Retry sync"** button on
+  `/settings`, shown only when the status is `error`, which resets
+  those counters and re-runs the drain.
+- **Taps on the bottom nav could silently do nothing right after
+  closing a modal** — the most likely cause of the reported "klik
+  menu bottom kadang crash/bug/error". The modal backdrop is
+  `position: fixed inset-0 z-50`, so it captures every tap on
+  screen while it exists. Its exit is animated and the panel's exit
+  is a spring (no fixed duration), so it lingered in the DOM for a
+  few hundred milliseconds after a close — and during that window it
+  kept `pointer-events: auto`, swallowing taps aimed at the nav
+  behind it. Measured directly, before the fix: `pointer-events`
+  stayed `auto` at +0ms through +300ms after pressing Escape. After
+  the fix: `none` from +0ms onward, while the fade-out still plays
+  normally. `pointerEvents: "none"` is applied as part of Framer
+  Motion's **exit target**, not a style prop — a
+  `style={{ pointerEvents: open ? ... }}` version does not work,
+  because the element lives inside `{open && ...}` and that
+  expression never re-evaluates for an element that is already
+  exiting.
+
+### Added
+
+- **Error boundaries — the app previously had none at all.**
+  Confirmed by searching for `error.tsx` / `global-error.tsx` and
+  finding neither, which meant any React render error produced a
+  blank or generic screen with no message, no recovery path, and
+  nothing reportable beyond "it crashed". Added both: `error.tsx`
+  (route-level, recoverable) and `global-error.tsx` (root-layout
+  failures, renders its own document with inline styles since global
+  CSS does not apply there). Both show a calm explanation, reassure
+  that tasks are stored locally and unaffected, offer a working
+  "Try again", and expose the error message + digest behind a
+  disclosure so there is something concrete to report. Verified by
+  deliberately throwing from a temporary page: the boundary renders,
+  and the bottom nav stays usable so it's still possible to navigate
+  away rather than being stuck.
+- 4 new regression tests for the sync-status bug (70 total, up from
+  66), covering: an entry that exhausts retries moves from
+  `activeCount` to `stuckCount`; an entry below the limit stays
+  `active`; `retryStuckEntries()` resets given-up entries; and it
+  leaves still-retrying entries untouched. Verified these actually
+  detect the bug by temporarily restoring the old implementation —
+  2 tests went red, then green again after reverting.
+
+### Changed
+
+- `MAX_SYNC_RETRY_ATTEMPTS` moved into `types/sync.ts` as a shared
+  constant. It was previously a local `const` in `sync-engine.ts`,
+  but `sync-queue.ts` now needs the same value to classify entries —
+  and `sync-engine.ts` already imports from `sync-queue.ts`, so
+  importing back the other way would have been circular.
+
+### Known limitations
+
+- **The reported bottom-nav crash could not be reproduced directly.**
+  Eight-plus scenarios were tried against a real browser — rapid nav
+  clicking, double-clicks, clicking with a modal open, 6x CPU
+  throttling to emulate a slower phone, 20-round stress loops,
+  navigation faster than the page-transition duration — with zero
+  console errors and zero blank renders in every one. The backdrop
+  fix above is the strongest candidate cause found and is verified
+  fixed on its own terms, but it cannot be claimed as definitively
+  *the* reported bug without a reproduction. The error boundaries
+  added in this release exist precisely so that if it does recur on
+  a real device, it produces a readable message and digest instead
+  of a blank screen.
+- An earlier diagnosis in this session — "the first click on the
+  modal's X button does nothing" — was **wrong**, and is recorded
+  here rather than quietly dropped: the measurement waited too
+  little time after the click and caught the modal mid-exit-
+  animation, when it is legitimately still in the DOM. A longer wait
+  showed it closing correctly on the first click. Methodology error,
+  not an app bug.
+
 ## [1.0.0] - 2026-09-12
 
 ### Added

@@ -10,6 +10,25 @@ import { AnimatePresence, motion } from "framer-motion";
  * Spring-based enter/exit, matching native bottom-sheet feel on
  * mobile and a centered dialog feel on larger screens — per the
  * "elegant, premium, professional, smooth" UI/UX requirement.
+ *
+ * BACKDROP POINTER-EVENTS: the backdrop is position:fixed inset-0
+ * z-50, so while it exists it captures every tap on screen —
+ * including taps on BottomNav behind it. Its exit is animated, and
+ * the panel's exit is a spring (damping: 32, stiffness: 380) with
+ * no fixed duration, so the backdrop can linger in the DOM for a
+ * few hundred ms after a close is requested. During that window,
+ * taps aimed at whatever is behind the modal would hit the backdrop
+ * instead and silently do nothing.
+ *
+ * `pointerEvents: "none"` is therefore part of the EXIT target, not
+ * a style prop: Framer Motion applies it the moment the exit
+ * animation starts, so the backdrop stops swallowing taps right
+ * away while still fading out visually. (A `style={{ pointerEvents:
+ * open ? ... }}` version of this does NOT work — the whole element
+ * lives inside `{open && ...}`, so that expression never re-evaluates
+ * for the element that's already exiting. An earlier attempt using a
+ * separate `interactive` state synced via useEffect also tripped
+ * react-hooks/set-state-in-effect, for good reason.)
  */
 export interface ModalProps {
   open: boolean;
@@ -37,9 +56,9 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
       {open && (
         <motion.div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px] p-0 sm:p-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          initial={{ opacity: 0, pointerEvents: "auto" }}
+          animate={{ opacity: 1, pointerEvents: "auto" }}
+          exit={{ opacity: 0, pointerEvents: "none" }}
           transition={{ duration: 0.18 }}
           onClick={onClose}
           role="presentation"

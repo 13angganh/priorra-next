@@ -5,8 +5,10 @@ import { useSyncStatus } from "@/hooks/use-sync-status";
 
 /**
  * Small sync-status indicator — a dot + label, matching the
- * "Menyinkronkan...", "Tersimpan", "Offline" states from
- * Architecture Proposal section 5. Development Phase #36.
+ * "Menyinkronkan...", "Tersimpan", "Offline", "Gagal sinkron" states
+ * from Architecture Proposal section 5. Development Phase #36,
+ * "error" state added to fix the indefinite-"Menyinkronkan..." bug
+ * — see use-sync-status.ts's docstring for the full root cause.
  *
  * Renders nothing when Firebase isn't configured — an offline-only
  * deployment shouldn't show a permanent "not configured" nag in the
@@ -23,6 +25,7 @@ export function SyncIndicator() {
     offline: { label: "Offline", dot: "bg-zinc-400 dark:bg-zinc-500" },
     syncing: { label: "Menyinkronkan...", dot: "bg-amber-500" },
     synced: { label: "Tersimpan", dot: "bg-emerald-500" },
+    error: { label: "Gagal sinkron — lihat Settings", dot: "bg-red-500" },
   }[status];
 
   return (

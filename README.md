@@ -6,18 +6,24 @@ source of truth) with optional Firestore cloud sync — Architecture C
 
 ## Status
 
-`1.0.0`. Core app — domain model, IndexedDB persistence, sync
+`1.0.1`. Core app — domain model, IndexedDB persistence, sync
 engine, dashboard UI, PWA install/offline support — is implemented
-and verified (lint/typecheck/tests all green, production build
-clean). This release also fixed a real intermittent render crash and
-several real UI bugs found via direct testing (icon picker,
-undo-toast/modal overlap, unbalanced empty-state layouts) — see
-`CHANGELOG.md`'s `[1.0.0]` entry for the full detail on each. See
-`CHANGELOG.md` generally for the complete, detailed history of
-what's been built, fixed, and what's deliberately not yet
-implemented (migrations — none needed yet, since this is the
-baseline release; live Firestore-rules testing against a real
-project).
+and verified (lint/typecheck/70 tests all green, production build
+clean).
+
+`1.0.1` fixes two reported issues: a sync indicator that showed
+"Menyinkronkan..." indefinitely once a push had permanently failed
+(now shows a distinct error state with a working "Retry sync"
+action on `/settings`), and a modal backdrop that kept swallowing
+taps aimed at the bottom nav for a few hundred milliseconds after
+the modal was dismissed. It also adds error boundaries, which the
+app previously had none of — so a render error now shows a readable
+message and a recovery button instead of a blank screen.
+
+See `CHANGELOG.md` for the full detail on each fix, including what
+was measured and what remains unverified (the reported bottom-nav
+crash could not be reproduced directly; see that entry's "Known
+limitations").
 
 ## Getting started
 

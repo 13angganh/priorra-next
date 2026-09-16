@@ -7,6 +7,30 @@
  */
 
 /**
+ * Max push attempts for a single SyncQueueEntry before SyncEngine
+ * gives up on it (see backoffDelayMs in lib/sync/sync-engine.ts —
+ * 1s/2s/4s/8s/16s across these 5 attempts). Kept here, not in
+ * sync-engine.ts, specifically so lib/sync/sync-queue.ts can import
+ * it too without sync-queue.ts <-> sync-engine.ts becoming a
+ * circular dependency (sync-engine.ts already imports FROM
+ * sync-queue.ts).
+ *
+ * REAL BUG this constant exists to fix: an entry that exhausts all
+ * retries used to stay counted as "pending" forever — SyncEngine
+ * gave up silently, but the UI's "Menyinkronkan..." indicator had
+ * no way to know that, and kept showing "syncing" indefinitely even
+ * though nothing was actually being retried anymore (confirmed by
+ * reading the exact code: drainEntityQueue's give-up branch and
+ * useSyncStatus's naive `pendingCount > 0` check, together). Fixed
+ * by having getPendingCount() (sync-queue.ts) and useSyncStatus
+ * (hooks/use-sync-status.ts) both check retryCount against this
+ * same constant, so "still actively retrying" and "gave up, needs
+ * attention" are distinguishable — not just implicitly, in two
+ * different files that used to silently disagree.
+ */
+export const MAX_SYNC_RETRY_ATTEMPTS = 5;
+
+/**
  * Per-record sync state. Every syncable entity (Task, Space) carries
  * this alongside its domain fields.
  *
