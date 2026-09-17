@@ -6,17 +6,27 @@ source of truth) with optional Firestore cloud sync — Architecture C
 
 ## Status
 
-`1.0.1`. Core app — domain model, IndexedDB persistence, sync
+`1.0.2`. Core app — domain model, IndexedDB persistence, sync
 engine, dashboard UI, PWA install/offline support — is implemented
 and verified (lint/typecheck/70 tests all green, production build
 clean).
 
-`1.0.1` fixes two reported issues: a sync indicator that showed
+`1.0.2` fixes a real error from a live deployment: the service
+worker was intercepting Firestore's realtime connection and
+breaking it (`A ServiceWorker intercepted the request and
+encountered an unexpected error`). **Important honesty note**: this
+fix is verified correct by construction — confirmed against the
+actual built, running service worker — but not verified end-to-end
+against a real Firebase project, since none is connected in the
+development environment. If this exact error recurs after deploying
+this version, please report it back.
+
+`1.0.1` fixed two earlier issues: a sync indicator that showed
 "Menyinkronkan..." indefinitely once a push had permanently failed
 (now shows a distinct error state with a working "Retry sync"
 action on `/settings`), and a modal backdrop that kept swallowing
 taps aimed at the bottom nav for a few hundred milliseconds after
-the modal was dismissed. It also adds error boundaries, which the
+the modal was dismissed. It also added error boundaries, which the
 app previously had none of — so a render error now shows a readable
 message and a recovery button instead of a blank screen.
 

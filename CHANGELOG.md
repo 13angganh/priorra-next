@@ -11,6 +11,59 @@ a migration happened.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-09-16
+
+Bug-fix release for a real error reported from a live deployment's
+browser console after 1.0.1 fixed anonymous auth: Firestore's
+realtime connection failing with "A ServiceWorker intercepted the
+request and encountered an unexpected error."
+
+### Fixed
+
+- **The service worker was intercepting Firestore's realtime `Listen`
+  channel and breaking it**, reported verbatim from a real deployed
+  user's DevTools console:
+  `Failed to load 'https://firestore.googleapis.com/.../Listen/channel?...'.
+  A ServiceWorker intercepted the request and encountered an
+  unexpected error.` Root cause, found by reading
+  `@serwist/next/worker`'s actual `defaultCache` source (not
+  guessed): its last specific rule is a catch-all for any
+  cross-origin request —
+  `matcher: ({ sameOrigin }) => !sameOrigin` — handled with
+  `NetworkFirst`, a strategy built around "fetch once, cache the
+  response". Firestore's Listen channel is not that: it's a
+  long-lived streaming connection
+  (`TYPE=xmlhttp`, kept open for realtime updates) that never
+  "completes" the way NetworkFirst expects, so Workbox's strategy
+  handling broke on it. Fixed by adding an explicit rule to
+  `src/app/sw.ts`, matching any `*.googleapis.com` or
+  `*.firebaseio.com` hostname (covers Firestore, Firebase Auth's
+  `identitytoolkit.googleapis.com`, and Realtime Database if ever
+  used) to `NetworkOnly` — no caching involvement at all — placed
+  BEFORE `defaultCache`'s rules in the `runtimeCaching` array, since
+  Workbox evaluates rules in order and stops at the first match.
+  Verified three ways: (1) inspected the actual built, minified
+  `public/sw.js` and confirmed the new rule (`eS`) is genuinely
+  first in the final array (`runtimeCaching:[eS,...eq]`) — an
+  earlier naive string-search check gave a misleading "it's after
+  cross-origin" result, which turned out to be finding an unrelated
+  string inside `defaultCache`'s own constant definition elsewhere
+  in the bundle, not the actual rule order; (2) evaluated the
+  matcher's regex directly inside the real, running service worker
+  via CDP and confirmed it matches `firestore.googleapis.com`; (3)
+  ran identical fetch probes against the old and new `sw.js` and
+  got byte-identical results in both — which is an honest limitation,
+  not a success: that specific probe (a plain REST `fetch()` to a
+  Firestore endpoint) fails on CORS before the service worker's
+  routing logic is even relevant, so it could not actually exercise
+  the difference. There is no real Firebase project connected in
+  this environment to test the genuine streaming `Listen` channel
+  against, so this fix is verified correct by construction (matcher
+  + rule order, confirmed against the real built and running
+  service worker) but not verified to resolve the exact reported
+  symptom end-to-end. If this specific error recurs after deploying
+  this version, that would be a meaningful, actionable signal.
+
 ## [1.0.1] - 2026-09-14
 
 Bug-fix release responding to reported issues: a sync indicator that
